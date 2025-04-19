@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # invoice-service:
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/invoice-service/Dockerfile
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - NODE_ENV=production
+  #     - MONGODB_URI=mongodb://mongodb:27017/invoice-system
+  #     - RABBITMQ_URL=amqp://rabbitmq:5672
+  #     - REDIS_URI=redis://redis:6379
+  #   depends_on:
+  #     - mongodb
+  #     - rabbitmq
+  #     - redis
+  #   networks:
+  #     - careera-network
+  #   restart: unless-stopped
+
+  # email-service:
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/email-service/Dockerfile
+  #   ports:
+  #     - "3001:3001"
+  #   environment:
+  #     - NODE_ENV=production
+  #     - MONGODB_URI=mongodb://mongodb:27017/invoice-system
+  #     - RABBITMQ_URL=amqp://rabbitmq:5672
+  #   depends_on:
+  #     - mongodb
+  #     - rabbitmq
+  #   networks:
+  #     - careera-network
+  #   restart: unless-stopped
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - careera-network
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - careera-network
+    restart: unless-stopped
+
+
+networks:
+  careera-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+  rabbitmq_data:
+  redis_data: 
