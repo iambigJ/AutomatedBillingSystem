@@ -1,11 +1,11 @@
 import { ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { MongoConfig } from '../config/config.types';
+import { Config } from '@carearra/common';
 
 export const mongooseModule = () =>
   MongooseModule.forRootAsync({
     useFactory: async (configService: ConfigService) => {
-      const config = configService.get<MongoConfig>('MONGO_General');
+      const config = configService.get<Config['MONGO_General']>('MONGO_General');
       const url = config.url;
       const port = config.port;
       const user = config?.user;

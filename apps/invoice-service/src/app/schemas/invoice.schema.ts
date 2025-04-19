@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 export type InvoiceDocument = Invoice & Document;
 
-@Schema({_id: false})
+@Schema({ _id: false })
 export class InvoiceItem {
   @Prop({ required: true })
   sku: string;
@@ -12,7 +12,7 @@ export class InvoiceItem {
   qt: number;
 }
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, versionKey: false })
 export class Invoice {
   @Prop({ required: true })
   customer: string;
@@ -26,8 +26,8 @@ export class Invoice {
   @Prop({ required: true, default: Date.now })
   date: Date;
 
-  @Prop({ type: [{ sku: String, qt: Number }], default: [] })
+  @Prop({ type: [InvoiceItem], default: [] })
   items: InvoiceItem[];
 }
 
-export const InvoiceSchema = SchemaFactory.createForClass(Invoice); 
+export const InvoiceSchema = SchemaFactory.createForClass(Invoice);

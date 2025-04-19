@@ -1,13 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import { ValidationPipe } from '@nestjs/common';
 
 import { AppModule } from './app/app.module';
-import { MyLogger } from '../common/custom-logger/custom-logger';
-import { AllExceptionsFilter } from '../common/filters/global-exeption';
+import { MyLogger } from '@carearra/common';
 
 async function bootstrap() {
   // Create custom logger
-  const logger = new MyLogger('Bootstrap');
+  const logger = new MyLogger('InvoiceService');
 
   // Create application with custom logger
   const app = await NestFactory.create(AppModule, {
@@ -17,8 +17,14 @@ async function bootstrap() {
   // Enable CORS
   app.enableCors();
 
-  // Apply global exception filter
-  app.useGlobalFilters(new AllExceptionsFilter());
+  // Apply global pipes and filters
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   // Get configuration
   const configService = app.get(ConfigService);

@@ -14,7 +14,9 @@
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
-    "paths": {}
+    "paths": {
+      "@carearra/common": ["libs/common/lib/index.ts"]
+    }
   },
   "exclude": ["node_modules", "tmp"]
 }

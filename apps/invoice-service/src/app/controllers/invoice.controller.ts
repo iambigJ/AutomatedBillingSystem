@@ -1,8 +1,19 @@
-import { Controller, Get, Post, Body, Param, Query, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  HttpException,
+  HttpStatus,
+  ParseIntPipe,
+  DefaultValuePipe,
+} from '@nestjs/common';
 import { InvoiceService } from '../services/invoice.service';
 import { CreateInvoiceDto } from '../dto/create-invoice.dto';
 import { Invoice } from '../schemas/invoice.schema';
-import { MyLogger } from '../../../common/custom-logger/custom-logger';
+import { MyLogger } from '@carearra/common';
 
 @Controller('invoices')
 export class InvoiceController {
@@ -22,46 +33,33 @@ export class InvoiceController {
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new HttpException('Failed to create invoice', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Failed to create invoice',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
   @Get()
   async findAll(
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-  ): Promise<Invoice[]> {
-    try {
-      this.logger.log(`Retrieving invoices - filters: startDate=${startDate}, endDate=${endDate}`);
-      
-      const dateFilter: { start?: Date; end?: Date } = {};
-      
-      if (startDate) {
-        try {
-          dateFilter.start = new Date(startDate);
-        } catch (error) {
-          throw new HttpException(`Invalid startDate format: ${startDate}`, HttpStatus.BAD_REQUEST);
-        }
-      }
-      
-      if (endDate) {
-        try {
-          dateFilter.end = new Date(endDate);
-        } catch (error) {
-          throw new HttpException(`Invalid endDate format: ${endDate}`, HttpStatus.BAD_REQUEST);
-        }
-      }
-      
-      return await this.invoiceService.findAll(
-        startDate || endDate ? dateFilter : undefined
-      );
-    } catch (error) {
-      this.logger.error(`Error retrieving invoices: ${error.message}`);
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException('Failed to retrieve invoices', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    @Query('startDate') startDate?: Date, // Pipe handles parsing/validation
+    @Query('endDate') endDate?: Date, // Pipe handles parsing/validation
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit?: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset?: number,
+  ) {
+    const dateFilter =
+      startDate || endDate ? { start: startDate, end: endDate } : undefined;
+    const [data, total] = await this.invoiceService.findAllWithPagination(
+      dateFilter,
+      limit,
+      offset,
+    );
+    return {
+      data,
+      total,
+      limit,
+      offset,
+    };
   }
 
   @Get(':id')
@@ -74,21 +72,10 @@ export class InvoiceController {
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new HttpException('Failed to retrieve invoice', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Failed to retrieve invoice',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
-
-  @Get('report/generate')
-  async generateReport(): Promise<any> {
-    try {
-      this.logger.log('Manually generating sales report');
-      return await this.invoiceService.generateDailySalesReport();
-    } catch (error) {
-      this.logger.error(`Error generating report: ${error.message}`);
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException('Failed to generate sales report', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-} 
+}

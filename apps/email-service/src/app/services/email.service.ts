@@ -1,5 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Transport, RmqContext, Ctx, MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  Transport,
+  RmqContext,
+  Ctx,
+  MessagePattern,
+  Payload,
+} from '@nestjs/microservices';
+import { ConfigService } from '@nestjs/config';
+import * as SendGrid from '@sendgrid/mail';
 
 interface SalesReport {
   date: Date;
@@ -15,10 +23,23 @@ interface SalesReport {
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
+  constructor(private configService: ConfigService) {
+    // Initialize SendGrid with API key
+    const sendgridApiKey = this.configService.get<string>('SENDGRID_API_KEY');
+    if (sendgridApiKey) {
+      SendGrid.setApiKey(sendgridApiKey);
+      this.logger.log('SendGrid initialized with API key');
+    } else {
+      this.logger.warn(
+        'SendGrid API key not found, email sending will be mocked',
+      );
+    }
+  }
+
   @MessagePattern('daily_sales_report', Transport.RMQ)
   async handleDailySalesReport(
     @Payload() data: SalesReport,
-    @Ctx() context: RmqContext
+    @Ctx() context: RmqContext,
   ) {
     const channel = context.getChannelRef();
     const originalMsg = context.getMessage();
@@ -27,17 +48,15 @@ export class EmailService {
       this.logger.log(`Received daily sales report for ${data.date}`);
       this.logger.log(`Total sales: ${data.totalSales}`);
       this.logger.log(`Number of invoices: ${data.invoiceCount}`);
-      
-      // Log item summary
-      data.itemSummary.forEach(item => {
-        this.logger.log(`SKU: ${item.sku}, Total Quantity: ${item.totalQuantitySold}`);
+
+      data.itemSummary.forEach((item) => {
+        this.logger.log(
+          `SKU: ${item.sku}, Total Quantity: ${item.totalQuantitySold}`,
+        );
       });
-      
-      // Here you would implement the actual email sending logic
-      // For example, using nodemailer or a third-party email service
+
       await this.sendEmail(data);
-      
-      // Acknowledge the message
+
       channel.ack(originalMsg);
     } catch (error) {
       this.logger.error(`Error processing sales report: ${error.message}`);
@@ -47,29 +66,49 @@ export class EmailService {
   }
 
   private async sendEmail(data: SalesReport): Promise<void> {
-    // This is where you would implement the actual email sending logic
-    // For this example, we're just logging the action
-    this.logger.log('Sending email with sales report...');
-    
     const emailSubject = `Daily Sales Report - ${new Date(data.date).toLocaleDateString()}`;
     const emailBody = this.formatEmailBody(data);
-    
-    // Example of how you would send an email using a library like nodemailer
-    // const transporter = nodemailer.createTransport({...});
-    // await transporter.sendMail({
-    //   from: 'reports@yourcompany.com',
-    //   to: 'management@yourcompany.com',
-    //   subject: emailSubject,
-    //   html: emailBody,
-    // });
-    
-    this.logger.log('Email sent successfully');
+
+    const fromEmail =
+      this.configService.get<string>('EMAIL_FROM') || 'reports@example.com';
+    const toEmail =
+      this.configService.get<string>('EMAIL_TO') || 'management@example.com';
+
+    const msg = {
+      to: toEmail,
+      from: fromEmail,
+      subject: emailSubject,
+      html: emailBody,
+    };
+
+    try {
+      const sendgridApiKey = this.configService.get<string>('SENDGRID_API_KEY');
+
+      if (sendgridApiKey) {
+        // Send email using SendGrid
+        this.logger.log(`Sending email to ${toEmail} via SendGrid`);
+        await SendGrid.send(msg);
+        this.logger.log('Email sent successfully with SendGrid');
+      } else {
+        // Mock email sending if no API key is available
+        this.logger.log(
+          `[MOCK] Would send email to ${toEmail} with subject: ${emailSubject}`,
+        );
+        this.logger.debug(`[MOCK] Email content: ${emailBody}`);
+        // Simulate a delay to mimic actual sending
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        this.logger.log('[MOCK] Email sending simulated successfully');
+      }
+    } catch (error) {
+      this.logger.error(`Failed to send email: ${error.message}`);
+      throw error; // Rethrow to be caught by the caller
+    }
   }
 
   private formatEmailBody(data: SalesReport): string {
     let itemsTable = '';
-    
-    data.itemSummary.forEach(item => {
+
+    data.itemSummary.forEach((item) => {
       itemsTable += `
         <tr>
           <td>${item.sku}</td>
@@ -77,7 +116,7 @@ export class EmailService {
         </tr>
       `;
     });
-    
+
     return `
       <h1>Daily Sales Report - ${new Date(data.date).toLocaleDateString()}</h1>
       <p><strong>Total Sales:</strong> $${data.totalSales.toFixed(2)}</p>
@@ -93,4 +132,4 @@ export class EmailService {
       </table>
     `;
   }
-} 
+}
