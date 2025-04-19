@@ -1,0 +1,32 @@
+port: 3000
+logLevel: debug
+JWT_KEY: 'invoice-secret-key'
+
+MONGO_General:
+  url: mongodb
+  port: 27017
+  # If authentication is needed, uncomment and set these
+  # user: admin
+  # password: admin_password
+
+Redis_General:
+  uri: redis
+  port: 6379
+  # If authentication is needed, uncomment and set these
+  # user: redis_user
+  # password: redis_password
+
+Mailer:
+  host: smtp.example.com
+  port: 587
+  auth: false
+  # If authentication is needed, set auth to true and uncomment these
+  # username: user@example.com
+  # password: mail_password
+  from: invoices@example.com
+
+RabbitMQ:
+  url: amqp://rabbitmq:5672
+  queue: daily_sales_report
+  queueOptions:
+    durable: true 
