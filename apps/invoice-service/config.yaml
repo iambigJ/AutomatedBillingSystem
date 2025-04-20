@@ -3,7 +3,7 @@ logLevel: debug
 JWT_KEY: 'invoice-secret-key'
 
 MONGO_General:
-  url: mongodb
+  url: localhost
   port: 27017
   # If authentication is needed, uncomment and set these
   # user: admin

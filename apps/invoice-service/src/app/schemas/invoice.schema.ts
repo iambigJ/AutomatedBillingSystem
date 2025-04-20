@@ -23,8 +23,8 @@ export class Invoice {
   @Prop({ required: true })
   reference: string;
 
-  @Prop({ required: true, default: Date.now })
-  date: Date;
+  @Prop({ required: true })
+  date: number;
 
   @Prop({ type: [InvoiceItem], default: [] })
   items: InvoiceItem[];

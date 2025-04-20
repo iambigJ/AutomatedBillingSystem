@@ -6,6 +6,23 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Invoice, InvoiceDocument } from '../schemas/invoice.schema';
 import { CreateInvoiceDto } from '../dto/create-invoice.dto';
 import { MyLogger } from '@carearra/common';
+import { start } from 'repl';
+
+interface QueryWithDate {
+  date?: {
+    $gte?: Date;
+    $lte?: Date;
+  };
+}
+
+/**
+ * Converts a Date object to UTC ISO string
+ * @param date The date to convert
+ * @returns The UTC ISO string
+ */
+function toUTCString(date: Date): string {
+  return date.toISOString();
+}
 
 @Injectable()
 export class InvoiceService {
@@ -23,16 +40,18 @@ export class InvoiceService {
       this.logger.log(
         `Creating new invoice for customer: ${createInvoiceDto.customer}`,
       );
+
+      if (!createInvoiceDto.date) {
+        createInvoiceDto.date = Date.now();
+      }
+
       const createdInvoice = new this.invoiceModel(createInvoiceDto);
       const savedInvoice = await createdInvoice.save();
 
-      this.logger.log(`Invoice created with ID: ${savedInvoice._id}`);
+      this.logger.log(`Invoice created with ID: ${String(savedInvoice._id)}`);
       return savedInvoice;
-    } catch (error) {
-      this.logger.error(
-        `Failed to create invoice: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: any) {
+      this.logger.error(`Failed to create invoice:`, error?.stack);
       throw new HttpException(
         'Failed to create invoice',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -42,31 +61,49 @@ export class InvoiceService {
 
   async findAll(dateFilter?: { start?: Date; end?: Date }): Promise<Invoice[]> {
     try {
-      // Build query based on date filter
-      const query: any = {};
+      const query: QueryWithDate = {};
 
       if (dateFilter && (dateFilter.start || dateFilter.end)) {
         query.date = {};
 
         if (dateFilter.start) {
-          query.date['$gte'] = dateFilter.start;
-          this.logger.log(`Filtering invoices from: ${dateFilter.start}`);
+          query.date.$gte = dateFilter.start;
+          this.logger.log(
+            `Filtering invoices from: ${toUTCString(dateFilter.start)}`,
+          );
         }
 
         if (dateFilter.end) {
-          query.date['$lte'] = dateFilter.end;
-          this.logger.log(`Filtering invoices to: ${dateFilter.end}`);
+          query.date.$lte = dateFilter.end;
+          this.logger.log(
+            `Filtering invoices to: ${toUTCString(dateFilter.end)}`,
+          );
         }
       }
 
       const invoices = await this.invoiceModel.find(query).exec();
       this.logger.log(`Found ${invoices.length} invoices`);
 
-      return invoices;
-    } catch (error) {
+      const invoicesWithUTCDates = invoices.map((invoice) => {
+        const formattedInvoice = invoice.toObject();
+        return formattedInvoice;
+      });
+
+      return invoicesWithUTCDates;
+    } catch (error: any) {
+      const errorMessage =
+        error && typeof error === 'object' && 'message' in error
+          ? String(error.message)
+          : 'Unknown error';
+
+      const errorStack =
+        error && typeof error === 'object' && 'stack' in error
+          ? String(error.stack)
+          : '';
+
       this.logger.error(
-        `Error retrieving invoices: ${error.message}`,
-        error.stack,
+        `Error retrieving invoices: ${errorMessage}`,
+        errorStack,
       );
       throw new HttpException(
         'Failed to retrieve invoices',
@@ -76,32 +113,28 @@ export class InvoiceService {
   }
 
   async findAllWithPagination(
-    dateFilter?: { start?: Date; end?: Date },
+    dateFilter?: { start?: string; end?: string },
     limit: number = 10,
     offset: number = 0,
   ): Promise<[Invoice[], number]> {
     try {
-      // Build query based on date filter
-      const query: any = {};
-
+      const query: QueryWithDate = {};
       if (dateFilter && (dateFilter.start || dateFilter.end)) {
         query.date = {};
 
         if (dateFilter.start) {
-          query.date['$gte'] = dateFilter.start;
-          this.logger.log(`Filtering invoices from: ${dateFilter.start}`);
+          query.date.$gte = dateFilter.start as unknown as Date;
+          this.logger.log(`Filtering invoices from ${dateFilter.start}`);
         }
 
         if (dateFilter.end) {
-          query.date['$lte'] = dateFilter.end;
-          this.logger.log(`Filtering invoices to: ${dateFilter.end}`);
+          query.date.$lte = dateFilter.end as unknown as Date;
+          this.logger.log(`Filtering invoices to ${dateFilter.end}`);
         }
       }
 
-      // Get total count (for pagination metadata)
       const totalCount = await this.invoiceModel.countDocuments(query).exec();
 
-      // Get paginated results
       const invoices = await this.invoiceModel
         .find(query)
         .skip(offset)
@@ -112,11 +145,21 @@ export class InvoiceService {
         `Found ${invoices.length} invoices (offset: ${offset}, limit: ${limit}, total: ${totalCount})`,
       );
 
-      return [invoices, totalCount];
-    } catch (error) {
+      // Convert all dates to UTC format
+      const invoicesWithUTCDates = invoices.map((invoice) => {
+        return invoice.toObject();
+      });
+
+      return [invoicesWithUTCDates, totalCount];
+    } catch (error: any) {
+      const errorMessage =
+        error && typeof error === 'object' && 'message' in error
+          ? String(error.message)
+          : 'Unknown error';
+
       this.logger.error(
-        `Error retrieving invoices: ${error.message}`,
-        error.stack,
+        `Error retrieving invoices: ${errorMessage}`,
+        error?.stack,
       );
       throw new HttpException(
         'Failed to retrieve invoices',
@@ -138,15 +181,17 @@ export class InvoiceService {
       }
 
       this.logger.log(`Found invoice with ID: ${id}`);
-      return invoice;
-    } catch (error) {
+
+      return invoice.toObject();
+    } catch (error: any) {
       if (error instanceof HttpException) {
         throw error;
       }
 
       this.logger.error(
-        `Error retrieving invoice ${id}: ${error.message}`,
-        error.stack,
+        `Error retrieving invoice ${id}`,
+        error?.stack,
+        error?.message,
       );
       throw new HttpException(
         'Failed to retrieve invoice',
@@ -161,8 +206,8 @@ export class InvoiceService {
       this.logger.log('Generating daily sales report');
 
       const today = new Date();
-      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0)).getTime();
+      const endOfDay = new Date(today.setHours(23, 59, 59, 999)).getTime();
 
       this.logger.log(`Querying invoices from ${startOfDay} to ${endOfDay}`);
 
@@ -177,14 +222,12 @@ export class InvoiceService {
 
       this.logger.log(`Found ${invoices.length} invoices for today's report`);
 
-      // Calculate total sales amount
       const totalSales = invoices.reduce(
         (sum, invoice) => sum + invoice.amount,
         0,
       );
 
-      // Calculate per item sales summary
-      const itemSummary = {};
+      const itemSummary: Record<string, number> = {};
       invoices.forEach((invoice) => {
         invoice.items.forEach((item) => {
           if (!itemSummary[item.sku]) {
@@ -194,7 +237,6 @@ export class InvoiceService {
         });
       });
 
-      // Convert to array format for easier consumption
       const itemSalesArray = Object.entries(itemSummary).map(
         ([sku, totalQt]) => ({
           sku,
@@ -202,9 +244,8 @@ export class InvoiceService {
         }),
       );
 
-      // Prepare and send report
       const report = {
-        date: today,
+        date: toUTCString(today),
         totalSales,
         itemSummary: itemSalesArray,
         invoiceCount: invoices.length,
@@ -213,10 +254,11 @@ export class InvoiceService {
       this.logger.log(`Sending report with total sales: ${totalSales}`);
 
       this.rabbitmqClient.emit('daily_sales_report', report);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
-        `Failed to generate daily sales report: ${error.message}`,
-        error.stack,
+        `Failed to generate daily sales report`,
+        error?.stack,
+        error?.message,
       );
       throw new HttpException(
         'Failed to generate daily sales report',
@@ -225,7 +267,7 @@ export class InvoiceService {
     }
   }
 
-
+  //---------alternative aggregation pipeline---------
   // async generateDailySalesReport() {
   //   this.logger.log('Generating daily sales report using aggregation pipeline');
 

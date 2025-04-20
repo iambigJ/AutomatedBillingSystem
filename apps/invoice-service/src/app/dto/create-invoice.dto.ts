@@ -34,9 +34,10 @@ export class CreateInvoiceDto {
   @MinLength(1)
   reference: string;
 
+  @IsNumber()
+  @IsPositive()
   @IsOptional()
-  @IsDateString()
-  date?: Date;
+  date?: number;
 
   @IsArray()
   @ArrayMinSize(1)

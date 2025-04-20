@@ -33,8 +33,8 @@ import { Invoice, InvoiceSchema } from './schemas/invoice.schema';
 
     // Message Queue
     createRabbitMQClientModule({
-      name: Invoice.name,
-      defaultQueue: 'daily-sales-report',
+      name: 'RABBITMQ_SERVICE',
+      defaultQueue: 'daily_sales_report',
     }),
   ],
   controllers: [AppController, InvoiceController],

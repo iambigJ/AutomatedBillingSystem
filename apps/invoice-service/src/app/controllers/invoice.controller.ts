@@ -27,6 +27,9 @@ export class InvoiceController {
   async create(@Body() createInvoiceDto: CreateInvoiceDto): Promise<Invoice> {
     try {
       this.logger.log('Creating new invoice');
+      if (createInvoiceDto.date) {
+        createInvoiceDto.date = Date.now();
+      }
       return await this.invoiceService.create(createInvoiceDto);
     } catch (error) {
       this.logger.error(`Error creating invoice: ${error.message}`);
@@ -42,10 +45,10 @@ export class InvoiceController {
 
   @Get()
   async findAll(
-    @Query('startDate') startDate?: Date, // Pipe handles parsing/validation
-    @Query('endDate') endDate?: Date, // Pipe handles parsing/validation
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit?: number,
-    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset?: number,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
   ) {
     const dateFilter =
       startDate || endDate ? { start: startDate, end: endDate } : undefined;
@@ -54,6 +57,7 @@ export class InvoiceController {
       limit,
       offset,
     );
+
     return {
       data,
       total,
@@ -68,7 +72,11 @@ export class InvoiceController {
       this.logger.log(`Retrieving invoice with ID: ${id}`);
       return await this.invoiceService.findOne(id);
     } catch (error) {
-      this.logger.error(`Error retrieving invoice ${id}: ${error.message}`);
+      this.logger.error(
+        `Error retrieving invoice`,
+        error?.stack,
+        error?.message,
+      );
       if (error instanceof HttpException) {
         throw error;
       }

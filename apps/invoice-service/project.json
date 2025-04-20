@@ -22,17 +22,10 @@
       "defaultConfiguration": "development",
       "dependsOn": ["build"],
       "options": {
-        "buildTarget": "carrera:build",
+        "buildTarget": "invoice-service:build",
         "runBuildTargetDependencies": false
-      },
-      "configurations": {
-        "development": {
-          "buildTarget": "carrera:build:development"
-        },
-        "production": {
-          "buildTarget": "carrera:build:production"
-        }
       }
+
     }
   }
 }
