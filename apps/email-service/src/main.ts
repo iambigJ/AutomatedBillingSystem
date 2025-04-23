@@ -1,35 +1,49 @@
-import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 import { AppModule } from './app/app.module';
+import { MyLogger } from '@mytest/common';
+import { RabbitMQConfig } from '@mytest/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Create custom logger
+  const logger = new MyLogger('EmailService');
+
+  // Create application with custom logger
+  const app = await NestFactory.create(AppModule, {
+    logger: logger,
+  });
+
   const configService = app.get(ConfigService);
-  
-  // Configure RabbitMQ microservice
+
+  const rabbitConfig = configService.get<RabbitMQConfig>('RabbitMQ');
+  const rabbitUrl = rabbitConfig?.url || 'amqp://localhost:5672';
+  const queueName = rabbitConfig?.queue || 'daily_sales_report';
+  const queueOptions = rabbitConfig?.queueOptions || { durable: true };
+
+  logger.log(`Connecting to RabbitMQ at ${rabbitUrl}, queue: ${queueName}`);
+
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
-      urls: [configService.get<string>('RABBITMQ_URL') || 'amqp://localhost:5672'],
-      queue: 'daily_sales_report',
-      queueOptions: {
-        durable: true,
-      },
+      urls: [rabbitUrl],
+      queue: queueName,
+      queueOptions: queueOptions,
+      prefetchCount: 1, // Process one message at a time
     },
   });
 
-  // Start microservice
   await app.startAllMicroservices();
-  
+  logger.log('🐰 RabbitMQ consumer is now listening for messages');
+
   // Also start HTTP server for health checks/monitoring
-  const httpPort = configService.get('PORT') || 3001;
+  const httpPort = configService.get<number>('port') || 3001;
   await app.listen(httpPort);
-  
-  Logger.log(`🚀 Email service is running on: http://localhost:${httpPort}`);
-  Logger.log('🐰 RabbitMQ consumer is listening for messages');
+
+  logger.log(`🚀 Email service is running on: http://localhost:${httpPort}`);
 }
 
-bootstrap(); 
+bootstrap().catch((err) => {
+  console.error('Failed to start Email service:', err);
+});

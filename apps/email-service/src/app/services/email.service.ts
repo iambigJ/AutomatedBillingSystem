@@ -1,135 +1,171 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  Transport,
-  RmqContext,
-  Ctx,
-  MessagePattern,
-  Payload,
-} from '@nestjs/microservices';
+import { RmqContext, Ctx, Payload } from '@nestjs/microservices';
 import { ConfigService } from '@nestjs/config';
-import * as SendGrid from '@sendgrid/mail';
-
-interface SalesReport {
-  date: Date;
-  totalSales: number;
-  itemSummary: Array<{
-    sku: string;
-    totalQuantitySold: number;
-  }>;
-  invoiceCount: number;
-}
+import { MailerService } from '@nestjs-modules/mailer';
+import { Channel, ConsumeMessage } from 'amqplib';
+import { ItemSummary, SalesReport } from '../types/report.interface';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
+  private readonly fromEmail: string;
+  private readonly toEmail: string;
 
-  constructor(private configService: ConfigService) {
-    // Initialize SendGrid with API key
-    const sendgridApiKey = this.configService.get<string>('SENDGRID_API_KEY');
-    if (sendgridApiKey) {
-      SendGrid.setApiKey(sendgridApiKey);
-      this.logger.log('SendGrid initialized with API key');
-    } else {
-      this.logger.warn(
-        'SendGrid API key not found, email sending will be mocked',
-      );
-    }
+  constructor(
+    private configService: ConfigService,
+    private mailerService: MailerService,
+  ) {
+    // Get email configuration from config.yaml
+    this.fromEmail =
+      this.configService.get<string>('Email.from') || 'reports@example.com';
+    this.toEmail =
+      this.configService.get<string>('Email.to') || 'management@example.com';
+
+    this.logger.log('Email service initialized');
   }
 
-  @MessagePattern('daily_sales_report', Transport.RMQ)
-  async handleDailySalesReport(
+  handleDailySalesReport(
     @Payload() data: SalesReport,
     @Ctx() context: RmqContext,
   ) {
-    const channel = context.getChannelRef();
-    const originalMsg = context.getMessage();
+    const channel = context.getChannelRef() as unknown as Channel;
+    const originalMsg = context.getMessage() as unknown as ConsumeMessage;
 
     try {
-      this.logger.log(`Received daily sales report for ${data.date}`);
+      this.logger.log(
+        `Received daily sales report for ${new Date(data.date).toISOString()}`,
+      );
       this.logger.log(`Total sales: ${data.totalSales}`);
       this.logger.log(`Number of invoices: ${data.invoiceCount}`);
 
-      data.itemSummary.forEach((item) => {
-        this.logger.log(
-          `SKU: ${item.sku}, Total Quantity: ${item.totalQuantitySold}`,
-        );
-      });
+      if (data.itemSummary && Array.isArray(data.itemSummary)) {
+        data.itemSummary.forEach((item) => {
+          this.logger.log(
+            `SKU: ${item.sku}, Total Quantity: ${item.totalQuantitySold}`,
+          );
+        });
+      } else {
+        this.logger.warn('No item summary data available or invalid format');
+      }
 
-      await this.sendEmail(data);
+      this.sendEmail(data);
 
-      channel.ack(originalMsg);
+      this.logger.log('Message processed successfully, acknowledging');
+      if (channel && typeof channel.ack === 'function') {
+        channel.ack(originalMsg);
+      }
     } catch (error) {
-      this.logger.error(`Error processing sales report: ${error.message}`);
-      // Negative acknowledgment - message will be requeued
-      channel.nack(originalMsg);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error processing sales report: ${errorMessage}`);
+
+      this.logger.warn(
+        'Sending negative acknowledgment, message will be requeued',
+      );
+      if (channel && typeof channel.nack === 'function') {
+        channel.nack(originalMsg);
+      }
     }
   }
 
-  private async sendEmail(data: SalesReport): Promise<void> {
-    const emailSubject = `Daily Sales Report - ${new Date(data.date).toLocaleDateString()}`;
-    const emailBody = this.formatEmailBody(data);
-
-    const fromEmail =
-      this.configService.get<string>('EMAIL_FROM') || 'reports@example.com';
-    const toEmail =
-      this.configService.get<string>('EMAIL_TO') || 'management@example.com';
-
-    const msg = {
-      to: toEmail,
-      from: fromEmail,
-      subject: emailSubject,
-      html: emailBody,
-    };
-
+  private sendEmail(data: SalesReport) {
     try {
-      const sendgridApiKey = this.configService.get<string>('SENDGRID_API_KEY');
-
-      if (sendgridApiKey) {
-        // Send email using SendGrid
-        this.logger.log(`Sending email to ${toEmail} via SendGrid`);
-        await SendGrid.send(msg);
-        this.logger.log('Email sent successfully with SendGrid');
-      } else {
-        // Mock email sending if no API key is available
-        this.logger.log(
-          `[MOCK] Would send email to ${toEmail} with subject: ${emailSubject}`,
-        );
-        this.logger.debug(`[MOCK] Email content: ${emailBody}`);
-        // Simulate a delay to mimic actual sending
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        this.logger.log('[MOCK] Email sending simulated successfully');
-      }
-    } catch (error) {
-      this.logger.error(`Failed to send email: ${error.message}`);
-      throw error; // Rethrow to be caught by the caller
+      const subject = `Daily Sales Report - ${new Date(data.date).toLocaleDateString()}`;
+      const html = this.formatEmailBody(data);
+      this.mailerService
+        .sendMail({
+          to: this.toEmail,
+          from: this.fromEmail,
+          subject,
+          html,
+        })
+        .then((res) => {
+          this.logger.log(
+            `Email sent successfully: ${res?.messageId || 'No message ID'}`,
+          );
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send email: ${error?.message || 'Unknown error'}`,
+            error?.stack,
+          );
+        });
+    } catch (error: any) {
+      this.logger.error(
+        `error to create html email format`,
+        error?.stack,
+        error?.message,
+      );
+      throw error;
     }
   }
 
   private formatEmailBody(data: SalesReport): string {
-    let itemsTable = '';
+    const dateOptions: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    };
+    const formattedDate = new Date(data.date).toLocaleDateString(
+      'en-US',
+      dateOptions,
+    );
 
-    data.itemSummary.forEach((item) => {
-      itemsTable += `
-        <tr>
-          <td>${item.sku}</td>
-          <td>${item.totalQuantitySold}</td>
-        </tr>
-      `;
+    // Format currency
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
     });
 
-    return `
-      <h1>Daily Sales Report - ${new Date(data.date).toLocaleDateString()}</h1>
-      <p><strong>Total Sales:</strong> $${data.totalSales.toFixed(2)}</p>
-      <p><strong>Number of Invoices:</strong> ${data.invoiceCount}</p>
-      
-      <h2>Items Sold</h2>
-      <table border="1" cellpadding="5" cellspacing="0">
+    let itemSummaryTable = '';
+    if (data.itemSummary && data.itemSummary.length > 0) {
+      const tableRows = data.itemSummary
+        .map(
+          (item: ItemSummary) => `
         <tr>
-          <th>SKU</th>
-          <th>Quantity Sold</th>
+          <td style="padding: 8px; border: 1px solid #ddd;">${item.sku}</td>
+          <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${item.totalQuantitySold}</td>
         </tr>
-        ${itemsTable}
-      </table>
+      `,
+        )
+        .join('');
+
+      itemSummaryTable = `
+        <h3>Item Summary</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="background-color: #f2f2f2;">
+              <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">SKU</th>
+              <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Quantity Sold</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      `;
+    }
+
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #4a6fdc; color: white; padding: 20px; text-align: center;">
+          <h1>Daily Sales Report</h1>
+          <p>${formattedDate}</p>
+        </div>
+        
+        <div style="padding: 20px;">
+          <h2>Summary</h2>
+          <p><strong>Total Sales:</strong> ${formatter.format(data.totalSales)}</p>
+           <p><strong>Invoices Generated:</strong> ${data.invoiceCount}</p>
+          
+          ${itemSummaryTable}
+          
+          <div style="background-color: #f2f2f2; padding: 15px; font-size: 12px; text-align: center; margin-top: 30px;">
+            <p>This is an automated report from the Careera system.</p>
+          </div>
+        </div>
+      </div>
     `;
   }
 }

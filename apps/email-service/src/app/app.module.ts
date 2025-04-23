@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EmailService } from './services/email.service';
-import { GlobalConfigModule } from '@carearra/common';
+import { GlobalConfigModule, MailModule } from '@mytest/common';
+import { EmailController } from './controllers/email.controller';
 
 @Module({
   imports: [
@@ -9,8 +10,9 @@ import { GlobalConfigModule } from '@carearra/common';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    MailModule.forRoot(),
   ],
-  controllers: [],
+  controllers: [EmailController],
   providers: [EmailService],
 })
 export class AppModule {}
