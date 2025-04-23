@@ -1,101 +1,136 @@
-# Carearra
+# Careera - Microservices Platform
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+A modern microservices application built with NestJS, MongoDB, RabbitMQ, and Redis. The platform consists of specialized services for handling invoicing and email communications.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+## Services
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/nest?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+### Invoice Service
+A microservice responsible for handling invoice generation, processing, and management.
 
-## Run tasks
+### Email Service
+A microservice responsible for email delivery, notifications, and communications.
 
-To run the dev server for your app, use:
+## Technology Stack
 
-```sh
-npx nx serve carrera
+- **Framework**: NestJS
+- **Database**: MongoDB
+- **Message Broker**: RabbitMQ
+- **Caching**: Redis
+- **Containerization**: Docker
+- **Monorepo Management**: Nx
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v16+)
+- Docker and Docker Compose
+- npm or yarn
+
+### Installation
+
+1. Clone the repository:
+   ```
+   cd careera
+   ```
+
+2. Install dependencies:
+   ```
+   npm install
+   ```
+
+### Development
+
+Start both services in development mode:
+```
+npm run dev:all
 ```
 
-To create a production bundle:
-
-```sh
-npx nx build carrera
+Or start individual services:
+```
+npm run dev:invoice  # Start invoice service in dev mode
+npm run dev:email    # Start email service in dev mode
 ```
 
-To see all available targets to run for a project, run:
+#### Using Nx Commands with APP_NAME
 
-```sh
-npx nx show project carrera
+You can use the APP_NAME environment variable to dynamically specify which service to serve or build:
+
+```bash
+# Serve a service in development mode
+APP_NAME=invoice-service nx serve $APP_NAME
+APP_NAME=email-service nx serve $APP_NAME
+
+# Serve with watch mode enabled
+APP_NAME=invoice-service nx serve $APP_NAME --watch
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+### Production
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Add new projects
-
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-Use the plugin's generator to create new projects.
-
-To generate a new application, use:
-
-```sh
-npx nx g @nx/nest:app demo
+Build all services:
+```
+npm run build
 ```
 
-To generate a new library, use:
-
-```sh
-npx nx g @nx/node:lib mylib
+Or build individual services:
+```
+npm run build:invoice
+npm run build:email
 ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+#### Building with Nx and APP_NAME
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+You can use the APP_NAME environment variable to dynamically build any service:
 
-## Set up CI!
+```bash
+# serve a specific service
+APP_NAME=$APP_NAME nx serve $APP_NAME
 
-### Step 1
-
-To connect to Nx Cloud, run the following command:
-
-```sh
-npx nx connect
+# Build with production configuration
+nx build $APP_NAME--configuration=$environment
 ```
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Docker Deployment
 
-### Step 2
+The project includes Docker configurations for easy deployment.
 
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
+Build the Docker images:
+```
+npm run docker:build
 ```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Start all containers:
+```
+npm run docker:up
+```
 
-## Install Nx Console
+Stop all containers:
+```
+npm run docker:down
+```
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+View logs:
+```
+npm run docker:logs
+```
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Project Structure
 
-## Useful links
+```
+careera/
+├── apps/
+│   ├── invoice-service/   # Invoice management service
+│   └── email-service/     # Email communication service
+├── libs/                  # Shared libraries
+├── docker-compose.yml     # Docker composition file
+└── package.json           # Project dependencies and scripts
+```
 
-Learn more:
+## Configuration
 
-- [Learn more about this workspace setup](https://nx.dev/nx-api/nest?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Each service has its own configuration file (`config.yaml`) with environment-specific settings. Environment variables can be used to override these configurations.
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
