@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
 
@@ -10,7 +9,7 @@ import {
   mongooseModule,
   AllExceptionsFilter,
   createRabbitMQClientModule,
-} from '@carearra/common';
+} from '@mytest/common';
 
 // App components
 import { AppController } from './controllers/app.controller';

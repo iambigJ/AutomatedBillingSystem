@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 
 import { AppModule } from './app/app.module';
-import { MyLogger } from '@carearra/common';
+import { MyLogger } from '@mytest/common';
 
 async function bootstrap() {
   const logger = new MyLogger('InvoiceService');
