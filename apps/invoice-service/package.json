@@ -1,0 +1,24 @@
+{
+  "name": "invoice-service",
+  "scripts": {
+    "test": "jest",
+    "test:e2e": "jest --config ./e2e/jest-e2e.config.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "latest",
+    "@nestjs/microservices": "latest",
+    "@nestjs/core": "latest",
+    "@nestjs/mongoose": "latest",
+    "@nestjs/schedule": "latest",
+    "amqplib": "latest",
+    "mongoose": "latest"
+  },
+  "devDependencies": {
+    "@types/jest": "latest",
+    "@types/supertest": "latest",
+    "jest": "latest",
+    "mongodb-memory-server": "latest",
+    "supertest": "latest",
+    "ts-jest": "latest"
+  }
+} 

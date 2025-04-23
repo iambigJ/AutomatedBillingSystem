@@ -5,17 +5,20 @@
     "sourceMap": true,
     "declaration": false,
     "moduleResolution": "node",
+    "strict": false,
+    "noImplicitReturns": true,
+    "noImplicitAny": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "importHelpers": true,
     "target": "es2015",
-    "module": "esnext",
+    "module": "es2022",
     "lib": ["es2020", "dom"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@carearra/common": ["libs/common/lib/index.ts"]
+      "@mytest/common": ["libs/common/lib/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

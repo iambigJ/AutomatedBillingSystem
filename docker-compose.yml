@@ -1,41 +1,53 @@
 version: '3.8'
 
 services:
-  # invoice-service:
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/invoice-service/Dockerfile
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - NODE_ENV=production
-  #     - MONGODB_URI=mongodb://mongodb:27017/invoice-system
-  #     - RABBITMQ_URL=amqp://rabbitmq:5672
-  #     - REDIS_URI=redis://redis:6379
-  #   depends_on:
-  #     - mongodb
-  #     - rabbitmq
-  #     - redis
-  #   networks:
-  #     - careera-network
-  #   restart: unless-stopped
+  invoice-service:
+    build:
+      context: .
+      dockerfile: ./apps/invoice-service/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SERVICE_PORT=3000
+    depends_on:
+      - mongodb
+      - rabbitmq
+      - redis
+    networks:
+      - careera-network
+    restart: unless-stopped
 
-  # email-service:
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/email-service/Dockerfile
-  #   ports:
-  #     - "3001:3001"
-  #   environment:
-  #     - NODE_ENV=production
-  #     - MONGODB_URI=mongodb://mongodb:27017/invoice-system
-  #     - RABBITMQ_URL=amqp://rabbitmq:5672
-  #   depends_on:
-  #     - mongodb
-  #     - rabbitmq
-  #   networks:
-  #     - careera-network
-  #   restart: unless-stopped
+  email-service:
+    build:
+      context: .
+      dockerfile: ./apps/email-service/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - SERVICE_PORT=3001
+      - EMAIL_PROVIDER=smtp
+      - SMTP_HOST=smtp.example.com
+      - SMTP_PORT=587
+      - SMTP_USER=smtp_user
+      - SMTP_PASS=smtp_password
+      - EMAIL_FROM=reports@example.com
+      - EMAIL_TO=management@example.com
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      - careera-network
+    restart: unless-stopped
 
   mongodb:
     image: mongo:latest
@@ -48,7 +60,7 @@ services:
     restart: unless-stopped
 
   rabbitmq:
-    image: rabbitmq:latest
+    image: rabbitmq:3-management
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -58,6 +70,15 @@ services:
       - careera-network
     restart: unless-stopped
 
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - careera-network
+    restart: unless-stopped
 
 networks:
   careera-network:
@@ -66,3 +87,4 @@ networks:
 volumes:
   mongodb_data:
   rabbitmq_data:
+  redis_data:
