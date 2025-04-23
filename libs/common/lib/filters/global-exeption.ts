@@ -8,7 +8,7 @@ import { Response } from 'express';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     if (exception instanceof HttpException) {
@@ -24,7 +24,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       });
     } else {
       const status = 500;
-      return response.status(status).json({
+      response.status(status).json({
         statusCode: status,
         timestamp: new Date().toISOString(),
         message: 'internal server Error',
